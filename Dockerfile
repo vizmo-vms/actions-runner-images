@@ -4,7 +4,7 @@ LABEL org.opencontainers.image.source="https://github.com/vizmo-vms/actions-runn
 LABEL org.opencontainers.image.description="GitHub Actions runner image with Sysbox and vizmo-vms workflow dependencies"
 
 ARG NVM_VERSION=v0.40.8
-ARG NODE_VERSION=24.21.0
+ARG NODE_VERSION=24.22.1
 ARG PNPM_VERSION=11.0.0
 ARG TEMPORAL_CLI_VERSION=1.9.1
 ARG DEVSPACE_VERSION=v6.3.21

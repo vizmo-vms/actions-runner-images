@@ -4,7 +4,7 @@ Derivative of `ghcr.io/actions/actions-runner:latest` for ARC runners that start
 
 Includes the dependencies from `hd.vizmo.dev:/root/actions-runner/runner-image/Dockerfile`:
 
-- Node.js 24.21.0 through nvm 0.40.8 (`NVM_DIR=/usr/local/nvm`)
+- Node.js 24.22.1 through nvm 0.40.8 (`NVM_DIR=/usr/local/nvm`)
 - pnpm 11.0.0
 - Temporal CLI 1.9.1
 - DevSpace 6.3.21, Rancher CLI 2.9.5, and kubectl 1.35.9
