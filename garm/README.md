@@ -1,8 +1,7 @@
 # GARM runners on Azure Spot
 
-The GARM scale sets for vizmo-vms boot stock Ubuntu 24.04 (`Canonical:ubuntu-24_04-lts:server:latest`) on Azure Spot
-VMs in New Zealand North. There is no custom image: [`bootstrap.sh`](bootstrap.sh) runs on every VM before GARM
-installs the runner, and installs what jobs expect:
+The GARM scale sets for vizmo-vms boot stock Ubuntu 24.04 on Azure Spot VMs in New Zealand North. There is no custom
+image: [`bootstrap.sh`](bootstrap.sh) runs on every VM before GARM installs the runner, and installs what jobs expect:
 
 - The ARC image's tools at the same versions: nvm with Node 24.22.1 and pnpm 11.0.0 (`NVM_DIR=/usr/local/nvm`),
   Temporal CLI, DevSpace, Rancher CLI, kubectl and Docker Compose, plus the build and node-canvas packages
@@ -27,6 +26,21 @@ label, so it matches the size label jobs use.
 | `small` | `self-hosted`, `small` | `Standard_F2ams_v6` | 20 | 32 |
 | `medium` | `self-hosted`, `medium` | `Standard_F4ams_v6` | 28 | 32 |
 | `large` | `self-hosted`, `large` | `Standard_F8ams_v6` | 12 | 64 |
+
+Image `Canonical:ubuntu-24_04-lts:server:24.04.202609040`, pinned rather than `latest`. Images from October 2026 boot the
+`7.0.0-*-azure` kernel, and MongoDB 8.0 refuses to start on it ("Linux kernel versions 6.19 and newer has a known
+incompatibility", [SERVER-121912](https://jira.mongodb.org/browse/SERVER-121912)), which breaks platform's e2e
+dependencies. That kernel already has the upstream fix (it is based on 7.0.14), but MongoDB's check ignores Ubuntu's
+patch level ([SERVER-136848](https://jira.mongodb.org/browse/SERVER-136848)). The pinned image boots
+`6.17.0-1022-azure`.
+
+The check only applies while glibc's rseq is off, which the Percona image sets (`GLIBC_TUNABLES=glibc.pthread.rseq=0`).
+[platform#345](https://github.com/vizmo-vms/platform/pull/345) sets `glibc.pthread.rseq=1` on its MongoDB service, and
+with it 8.0.34-15 starts on `7.0.0-1017-azure` (checked on 24.04.202610210). Once that is on `main` and in the
+branches CI still builds, move the pin to `latest`. Do it before this version
+disappears too: Canonical removes old versions after a few months, and some listed versions already fail to resolve
+(`az vm image show` returns NotFound for 24.04.202607280 and 24.04.202610090). GARM then retries the VM creation
+without end.
 
 Extra specs (`disk_size_gb` 64 for `large`):
 
