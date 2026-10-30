@@ -27,20 +27,19 @@ label, so it matches the size label jobs use.
 | `medium` | `self-hosted`, `medium` | `Standard_F4ams_v6` | 28 | 32 |
 | `large` | `self-hosted`, `large` | `Standard_F8ams_v6` | 12 | 64 |
 
-Image `Canonical:ubuntu-24_04-lts:server:24.04.202609040`, pinned rather than `latest`. Images from October 2026 boot the
-`7.0.0-*-azure` kernel, and MongoDB 8.0 refuses to start on it ("Linux kernel versions 6.19 and newer has a known
-incompatibility", [SERVER-121912](https://jira.mongodb.org/browse/SERVER-121912)), which breaks platform's e2e
-dependencies. That kernel already has the upstream fix (it is based on 7.0.14), but MongoDB's check ignores Ubuntu's
-patch level ([SERVER-136848](https://jira.mongodb.org/browse/SERVER-136848)). The pinned image boots
-`6.17.0-1022-azure`.
+Image `Canonical:ubuntu-24_04-lts:server:latest`. Since October 2026 it boots the `7.0.0-*-azure` kernel.
 
-The check only applies while glibc's rseq is off, which the Percona image sets (`GLIBC_TUNABLES=glibc.pthread.rseq=0`).
-[platform#345](https://github.com/vizmo-vms/platform/pull/345) sets `glibc.pthread.rseq=1` on its MongoDB service, and
-with it 8.0.34-15 starts on `7.0.0-1017-azure` (checked on 24.04.202610210). Once that is on `main` and in the
-branches CI still builds, move the pin to `latest`. Do it before this version
-disappears too: Canonical removes old versions after a few months, and some listed versions already fail to resolve
-(`az vm image show` returns NotFound for 24.04.202607280 and 24.04.202610090). GARM then retries the VM creation
-without end.
+MongoDB 8.0 refuses to start on Linux 6.19 and newer ("Linux kernel versions 6.19 and newer has a known
+incompatibility", [SERVER-121912](https://jira.mongodb.org/browse/SERVER-121912)), Ubuntu's 7.0 kernels included: they
+carry the upstream fix, but the check ignores Ubuntu's patch level
+([SERVER-136848](https://jira.mongodb.org/browse/SERVER-136848)). The check only applies while glibc's rseq is off,
+which the Percona image sets (`GLIBC_TUNABLES=glibc.pthread.rseq=0`). A job that starts MongoDB 8 sets
+`GLIBC_TUNABLES=glibc.pthread.rseq=1` on the mongod container, as platform's dev stack does
+([platform#345](https://github.com/vizmo-vms/platform/pull/345)).
+
+If a new image breaks jobs, pin a known-good version (`Canonical:ubuntu-24_04-lts:server:24.04.<version>`). Check it
+with `az vm image show --location newzealandnorth --urn <image>` first: some listed versions do not resolve (for
+example 24.04.202607280 and 24.04.202610090), and GARM then retries the VM creation without end.
 
 Extra specs (`disk_size_gb` 64 for `large`):
 
