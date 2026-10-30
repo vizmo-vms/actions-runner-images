@@ -6,10 +6,9 @@ here=$(cd "$(dirname "$0")" && pwd)
 . "$here/versions.env"
 
 sdk=/opt/android-sdk
-tools=$(curl -fsSL https://dl.google.com/android/repository/repository2-3.xml \
-  | grep -oE 'commandlinetools-linux-[0-9]+_latest\.zip' | sort -V | tail -1)
 mkdir -p "$sdk/cmdline-tools"
-curl -fsSL -o /tmp/cmdline-tools.zip "https://dl.google.com/android/repository/${tools}"
+curl -fsSL -o /tmp/cmdline-tools.zip \
+  "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS}_latest.zip"
 unzip -q /tmp/cmdline-tools.zip -d "$sdk/cmdline-tools"
 mv "$sdk/cmdline-tools/cmdline-tools" "$sdk/cmdline-tools/latest"
 rm /tmp/cmdline-tools.zip

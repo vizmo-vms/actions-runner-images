@@ -22,7 +22,7 @@ export AGENT_TOOLSDIRECTORY=/opt/hostedtoolcache
 export ANDROID_HOME=/opt/android-sdk
 export ANDROID_SDK_ROOT=/opt/android-sdk
 export JAVA_HOME=/opt/java-17
-export PATH="/home/runner/.cargo/bin:/usr/local/nvm/versions/node/v${NODE_VERSION}/bin:/opt/flutter/bin:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:\$PATH"
+export PATH="/home/runner/.cargo/bin:/usr/local/nvm/versions/node/v${NODE_VERSION}/bin:/opt/java-17/bin:/opt/flutter/bin:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:\$PATH"
 EOF
 
 version=$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest | jq -r .tag_name)

@@ -28,9 +28,10 @@ for f in settings.gradle settings.gradle.kts; do
 done
 for f in app/build.gradle app/build.gradle.kts; do
   [ -f "$f" ] || continue
-  sed -i -E "s/compileSdk( =)? flutter\.compileSdkVersion/compileSdk = ${ANDROID_COMPILE_SDK}/" "$f"
+  # The apps' form: release(37) { minorApiLevel = 0 } builds against platforms;android-37.0, not android-37.
+  sed -i -E "s/compileSdk( =)? flutter\.compileSdkVersion/compileSdk {\n        version = release(${ANDROID_COMPILE_SDK}) { minorApiLevel = ${ANDROID_PLATFORM##*.} }\n    }/" "$f"
 done
-grep -h -E "distributionUrl|com.android.application|kotlin.android|compileSdk" \
+grep -h -E "distributionUrl|com.android.application|kotlin.android|release\(" \
   gradle/wrapper/gradle-wrapper.properties settings.gradle* app/build.gradle* || true
 cd ..
 # Best effort: if the template stops building with these versions, most downloads have still happened.
