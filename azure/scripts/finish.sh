@@ -6,9 +6,11 @@
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 
-# Used space each flavor may take, so jobs keep at least 12 GB free on a 32 GB disk (base) and 25 GB on 64 GB (large).
+# Used space each flavor may take, so jobs keep at least 10 GB free on a 32 GB disk (about 30 GB of filesystem; base)
+# and 25 GB on 64 GB (large). Every tool and image is already in place, so jobs mostly need room for checkouts and
+# build output.
 case "$1" in
-  base) budget_gb=19 ;;
+  base) budget_gb=20 ;;
   large) budget_gb=37 ;;
 esac
 

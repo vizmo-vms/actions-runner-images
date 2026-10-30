@@ -3,7 +3,8 @@
 #
 # Usage: build.sh base|large
 #   base   everything jobs need (small and medium runners); starts from Ubuntu
-#   large  pre-pulls the images large jobs start; starts from the runner-base version built in the same run
+#   large  adds the Playwright versions and pre-pulled images only large jobs use; starts from the runner-base
+#          version built in the same run
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -16,12 +17,15 @@ step() {
 
 case "$flavor" in
   base)
-    for name in system runner node toolcache android playwright rust; do
+    for name in system runner node toolcache android; do
       step "$name"
     done
+    step playwright base
+    step rust
     step images "$here/../images-base.txt"
     ;;
   large)
+    step playwright large
     step images "$here/../images-large.txt"
     ;;
   *)
