@@ -2,11 +2,10 @@
 
 Runner images for vizmo-vms CI.
 
-## Azure runner images
+## GARM runners on Azure
 
-[`azure/`](azure) builds the VM images for the GARM runners on Azure Spot (`small`, `medium`, `large`): the tools
-below plus the tool cache, Android SDK, Flutter, Playwright, Rust and the pre-pulled CI images. See
-[`azure/README.md`](azure/README.md).
+The GARM runners on Azure Spot (`small`, `medium`, `large`) boot stock Ubuntu 24.04 and set themselves up with
+[`garm/bootstrap.sh`](garm/bootstrap.sh). See [`garm/README.md`](garm/README.md) for the scale sets.
 
 [`retry-evicted.yml`](.github/workflows/retry-evicted.yml) is a reusable workflow that re-runs jobs a Spot eviction
 cut short. Each repository that uses the Azure runners calls it from a `workflow_run` workflow.

@@ -1,4 +1,0 @@
-# Images pulled into every runner image (small, medium and large runners).
-
-# platform semgrep runs in this container on small runners.
-semgrep/semgrep:latest
