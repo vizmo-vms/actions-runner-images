@@ -15,7 +15,7 @@ name: Retry evicted jobs
 #     checks: read
 #   jobs:
 #     retry:
-#       uses: vizmo-vms/actions-runner-sysbox/.github/workflows/retry-evicted.yml@main
+#       uses: vizmo-vms/actions-runner-images/.github/workflows/retry-evicted.yml@main
 
 on:
   workflow_call:

@@ -20,7 +20,7 @@ echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/githubcli.gpg] https://cli.git
 
 apt-get update -q
 apt-get dist-upgrade -y -q
-# First group: the ARC image (vizmo-vms/actions-runner-sysbox Dockerfile). Second: packages jobs apt-get install
+# First group: the ARC image (the Dockerfile in this repository). Second: packages jobs apt-get install
 # today (flutter, secure-plan, argus, platform). Third: native-gem, Flutter test and general build tooling.
 apt-get install -y -q --no-install-recommends \
   build-essential ca-certificates curl git iptables iproute2 jq libcairo2-dev libgif-dev libjpeg-dev \

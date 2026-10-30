@@ -1,6 +1,6 @@
 FROM ghcr.io/actions/actions-runner:latest
 
-LABEL org.opencontainers.image.source="https://github.com/vizmo-vms/actions-runner-sysbox"
+LABEL org.opencontainers.image.source="https://github.com/vizmo-vms/actions-runner-images"
 LABEL org.opencontainers.image.description="GitHub Actions runner image with Sysbox and vizmo-vms workflow dependencies"
 
 ARG NVM_VERSION=v0.40.8
