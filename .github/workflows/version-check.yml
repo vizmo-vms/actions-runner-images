@@ -1,0 +1,44 @@
+name: Version check
+
+# Every Sunday, compares the pinned tool versions with upstream and opens (or refreshes) one issue when any are behind.
+on:
+  schedule:
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Compare pinned versions with upstream
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/check-versions.py Dockerfile | tee report.md
+
+      - name: Open or update the issue
+        if: steps.check.outputs.outdated != '0' || steps.check.outputs.errors != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: Runner image tool updates
+        run: |
+          {
+            echo "Weekly check of the versions pinned in the Dockerfile ($(date -u +%F))."
+            echo
+            cat report.md
+            echo
+            echo "Bump the \`ARG\` versions in the Dockerfile; the publish workflow rebuilds the image on merge."
+          } > body.md
+          number=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file body.md
+            gh issue comment "$number" --body "Refreshed by the weekly check: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          else
+            gh issue create --title "$TITLE" --body-file body.md --assignee hariprasadiit
+          fi
