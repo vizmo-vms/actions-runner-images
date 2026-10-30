@@ -15,7 +15,6 @@ on:
 permissions:
   contents: read
   id-token: write
-  packages: read
 
 concurrency:
   group: azure-image
@@ -62,9 +61,6 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Build runner-large
-        env:
-          # Reads the private ghcr.io/vizmo-vms images; each package grants this repository read access.
-          PKR_VAR_ghcr_token: ${{ secrets.GITHUB_TOKEN }}
         run: >-
           packer build -color=false -timestamp-ui
           -var flavor=large

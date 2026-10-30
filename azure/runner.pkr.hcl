@@ -50,19 +50,6 @@ variable "vm_size" {
   default = "Standard_F8ams_v6"
 }
 
-variable "ghcr_token" {
-  type        = string
-  default     = ""
-  sensitive   = true
-  description = "Reads the private ghcr.io/vizmo-vms images the large image pre-pulls"
-}
-
-variable "allow_missing_private_images" {
-  type        = bool
-  default     = false
-  description = "Skip private images when ghcr_token is empty (local test builds)"
-}
-
 locals {
   is_base = var.flavor == "base"
 }
@@ -128,10 +115,6 @@ build {
   }
 
   provisioner "shell" {
-    environment_vars = [
-      "GHCR_TOKEN=${var.ghcr_token}",
-      "ALLOW_MISSING_PRIVATE_IMAGES=${var.allow_missing_private_images}",
-    ]
     execute_command = "chmod +x {{ .Path }}; sudo -E bash '{{ .Path }}'"
     inline          = ["bash /tmp/runner-image/scripts/build.sh ${var.flavor}"]
   }

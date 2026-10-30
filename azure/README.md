@@ -42,8 +42,8 @@ installed and fails on anything missing.
 
 The workflow signs in to Azure as the `id-runner-image-builder` managed identity (OIDC, Contributor on
 `rg-runner-images` only). Repository variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID` name
-it. The private `ghcr.io/vizmo-vms` images are read with the workflow's `GITHUB_TOKEN`, so each of those packages must
-grant this repository read access.
+it. Every pre-pulled image is public, so the build needs no registry credentials, and the GitHub side is a free
+`ubuntu-latest` runner that only drives Packer; the image itself builds on a temporary Spot VM in `rg-runner-images`.
 
 GARM's scale sets use the image definitions, not a version, so a promoted version reaches new runners without touching
 GARM. To roll back, hide the bad version:
