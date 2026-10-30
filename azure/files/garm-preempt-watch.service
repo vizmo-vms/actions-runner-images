@@ -1,0 +1,11 @@
+[Unit]
+Description=Stop the GitHub runner when Azure announces a Spot eviction
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/garm-preempt-watch
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,52 @@
+name: Retry evicted jobs
+
+# Called by a workflow_run workflow in each repository that uses the Azure Spot runners. When a run's first attempt
+# failed because a Spot eviction cut a job short, re-runs its failed jobs once. The eviction watcher stops the runner,
+# so an evicted job fails with only "The operation was canceled."; a VM that vanished first leaves "lost communication
+# with the server". Timeouts add "exceeded the maximum execution time" to the same cancellation and are not retried.
+#
+# Caller:
+#   on:
+#     workflow_run:
+#       workflows: [CI, Release]
+#       types: [completed]
+#   permissions:
+#     actions: write
+#     checks: read
+#   jobs:
+#     retry:
+#       uses: vizmo-vms/actions-runner-sysbox/.github/workflows/retry-evicted.yml@main
+
+on:
+  workflow_call:
+
+jobs:
+  retry:
+    if: github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Re-run failed jobs after an eviction
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          evicted=()
+          for job in $(gh api "repos/$REPO/actions/runs/$RUN_ID/attempts/1/jobs" --paginate \
+              --jq '.jobs[] | select(.conclusion == "failure" and ((.runner_name // "") | startswith("garm-"))) | .id'); do
+            messages=$(gh api "repos/$REPO/check-runs/$job/annotations" --jq '.[].message')
+            if grep -q "exceeded the maximum execution time" <<<"$messages"; then
+              continue
+            fi
+            if grep -qE "^The operation was canceled\.$|lost communication with the server" <<<"$messages"; then
+              evicted+=("$job")
+            fi
+          done
+          if [ "${#evicted[@]}" -eq 0 ]; then
+            echo "No evicted jobs in run $RUN_ID."
+            exit 0
+          fi
+          echo "::notice::Jobs ${evicted[*]} were evicted; re-running the failed jobs of run $RUN_ID."
+          gh run rerun "$RUN_ID" --failed --repo "$REPO"

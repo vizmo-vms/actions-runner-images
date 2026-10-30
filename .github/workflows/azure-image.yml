@@ -1,0 +1,83 @@
+name: Azure runner images
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - azure/**
+      - .github/workflows/azure-image.yml
+  workflow_dispatch:
+  # 00:53 IST, outside working hours; new versions only reach runners after promote.sh's boot test.
+  schedule:
+    - cron: "23 19 * * *"
+
+permissions:
+  contents: read
+  id-token: write
+  packages: read
+
+concurrency:
+  group: azure-image
+
+env:
+  AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-packer@v3
+        with:
+          version: 1.16.2
+
+      - name: Pick the image version
+        id: version
+        run: echo "version=1.$(date -u +%Y%m%d).$(date -u +%H%M)" >> "$GITHUB_OUTPUT"
+
+      - run: packer init azure
+
+      # Each phase signs in again: the OIDC sign-in does not outlast the whole build.
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build runner-base
+        run: >-
+          packer build -color=false -timestamp-ui
+          -var flavor=base
+          -var image_version=${{ steps.version.outputs.version }}
+          -var subscription_id="$AZURE_SUBSCRIPTION_ID"
+          azure
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build runner-large
+        env:
+          # Reads the private ghcr.io/vizmo-vms images; each package grants this repository read access.
+          PKR_VAR_ghcr_token: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          packer build -color=false -timestamp-ui
+          -var flavor=large
+          -var base_version=${{ steps.version.outputs.version }}
+          -var image_version=${{ steps.version.outputs.version }}
+          -var subscription_id="$AZURE_SUBSCRIPTION_ID"
+          azure
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Boot-test and promote
+        run: azure/promote.sh ${{ steps.version.outputs.version }}

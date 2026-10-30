@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+"""Stops the GitHub runner as soon as Azure announces a Spot eviction.
+
+Stopping the service makes the runner cancel its job and report it, so the job fails within seconds instead of after
+GitHub's 10 minute lost-runner timeout.
+"""
+import json
+import subprocess
+import sys
+import time
+import urllib.request
+
+EVENTS_URL = "http://169.254.169.254/metadata/scheduledevents?api-version=2020-07-01"
+
+
+def scheduled_events():
+    request = urllib.request.Request(EVENTS_URL, headers={"Metadata": "true"})
+    # The first request turns Scheduled Events on for the VM and can take up to two minutes to answer.
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(request, timeout=150) as response:
+        return json.load(response).get("Events", [])
+
+
+while True:
+    try:
+        preempt = [e for e in scheduled_events() if e.get("EventType") == "Preempt"]
+    except Exception as err:  # IMDS can be briefly unavailable; keep polling.
+        print(f"reading scheduled events: {err}", flush=True)
+        time.sleep(5)
+        continue
+    if preempt:
+        print(f"eviction announced, stopping the runner: {preempt[0]}", flush=True)
+        subprocess.run(["systemctl", "stop", "--no-block", "actions.runner.*"], check=False)
+        sys.exit(0)
+    time.sleep(2)

@@ -24,3 +24,12 @@ ghcr.io/vizmo-vms/actions-runner-sysbox:latest
 The build verifies the tools as the unprivileged `runner` user before publishing. Dependencies are installed at image build time, so runner startup and E2E setup do not need `apt-get update`.
 
 The official ARC base, `runner` user, and bundled Docker engine are retained. There is no DinD sidecar; the existing ARC pod configuration starts dockerd inside Sysbox.
+
+## Azure runner images
+
+[`azure/`](azure) builds the VM images for the GARM runners on Azure Spot that replace the ARC and HD runners: every
+tool above plus the tool cache, Android SDK, Flutter, Playwright, Rust and the pre-pulled CI images. See
+[`azure/README.md`](azure/README.md).
+
+[`retry-evicted.yml`](.github/workflows/retry-evicted.yml) is a reusable workflow that re-runs jobs a Spot eviction
+cut short. Each repository that uses the Azure runners calls it from a `workflow_run` workflow.

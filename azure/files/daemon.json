@@ -1,0 +1,11 @@
+{
+  "features": {
+    "containerd-snapshotter": false
+  },
+  "registry-mirrors": ["https://mirror.gcr.io"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "50m",
+    "max-file": "2"
+  }
+}

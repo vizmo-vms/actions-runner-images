@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# Checks a runner VM has every tool and pre-pulled image the image promises. The image build runs it before capture and
+# the boot test runs it on a fresh VM; the last line is "runner-image-check: PASS" or "runner-image-check: FAIL".
+#
+# Usage: runner-image-check [max-used-GB]   also fails when the root filesystem uses more than that
+set -uo pipefail
+
+if [ "$(id -u)" -eq 0 ]; then
+  exec runuser -l runner -s /bin/bash -c "$(printf '%q ' "$0" "$@")"
+fi
+
+. /etc/runner-image/versions.env
+failures=()
+
+check() {
+  local name=$1
+  shift
+  if out=$("$@" 2>&1); then
+    printf 'ok    %-28s %s\n' "$name" "$(head -1 <<<"$out")"
+  else
+    printf 'FAIL  %-28s %s\n' "$name" "$(tail -1 <<<"$out")"
+    failures+=("$name")
+  fi
+}
+
+expect() {
+  local name=$1 want=$2
+  shift 2
+  check "$name" bash -c "$(printf '%q ' "$@") 2>&1 | grep -F -- $(printf '%q' "$want")"
+}
+
+complete() {
+  compgen -G "/opt/hostedtoolcache/$1.complete" >/dev/null && ls -d /opt/hostedtoolcache/$1 | head -1
+}
+
+expect node "v${NODE_VERSION}" node --version
+expect pnpm "${PNPM_VERSION}" pnpm --version
+check nvm bash -c '. "$NVM_DIR/nvm.sh" && nvm use 24 >/dev/null && node --version'
+expect temporal "${TEMPORAL_CLI_VERSION}" temporal --version
+expect devspace "${DEVSPACE_VERSION#v}" devspace version
+expect rancher "${RANCHER_CLI_VERSION}" rancher --version
+expect kubectl "${KUBECTL_VERSION}" kubectl version --client
+expect "docker compose" "${DOCKER_COMPOSE_VERSION#v}" docker compose version --short
+check "docker daemon" docker info --format '{{.ServerVersion}} {{.Driver}}'
+check "docker buildx" docker buildx version
+for tool in gh yq jq git git-lfs rg python3 cargo rustup; do
+  check "$tool" "$tool" --version
+done
+check xvfb-run command -v xvfb-run
+check "dpkg packages" dpkg -s build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
+  python3-venv acl xvfb mesa-vulkan-drivers
+for version in ${TOOLCACHE_NODE_VERSIONS}; do
+  check "toolcache node $version" complete "node/${version}/x64"
+done
+for series in ${TOOLCACHE_PYTHON_SERIES}; do
+  check "toolcache python $series" complete "Python/${series}.*/x64"
+done
+for series in ${TOOLCACHE_RUBY_SERIES}; do
+  check "toolcache ruby $series" complete "Ruby/${series}.*/x64"
+done
+for major in ${TOOLCACHE_JAVA_MAJORS}; do
+  check "toolcache java $major" complete "Java_Temurin-Hotspot_jdk/${major}.*/x64"
+done
+check java java -version
+expect flutter "Flutter ${FLUTTER_VERSION}" flutter --version
+expect "android platform" "platforms;${ANDROID_PLATFORM}" sdkmanager --list_installed
+check "gradle ${GRADLE_VERSION}" bash -c "ls -d ~/.gradle/wrapper/dists/gradle-${GRADLE_VERSION}-bin/*/gradle-${GRADLE_VERSION}"
+check "playwright chromium" bash -c 'ls -d ~/.cache/ms-playwright/chromium-* | wc -l | grep -qv "^0$" && ls ~/.cache/ms-playwright | tr "\n" " "'
+check "actions runner" bash -c 'test -x ~/actions-runner/bin/Runner.Listener && grep "^NVM_DIR=" ~/actions-runner/.env'
+check "eviction watcher" systemctl is-enabled garm-preempt-watch.service
+
+if [ -s /etc/runner-image/images.txt ]; then
+  missing=()
+  while IFS= read -r ref; do
+    docker image inspect "$ref" >/dev/null 2>&1 || missing+=("$ref")
+  done </etc/runner-image/images.txt
+  if [ "${#missing[@]}" -eq 0 ]; then
+    printf 'ok    %-28s %s\n' "pre-pulled images" "$(wc -l </etc/runner-image/images.txt) present"
+  else
+    printf 'FAIL  %-28s %s\n' "pre-pulled images" "missing: ${missing[*]}"
+    failures+=("pre-pulled images")
+  fi
+fi
+
+used_gb=$(df --output=used -BG / | tail -1 | tr -dc 0-9)
+size_gb=$(df --output=size -BG / | tail -1 | tr -dc 0-9)
+printf 'info  %-28s %s\n' "root filesystem" "${used_gb} GB used of ${size_gb} GB"
+if [ -n "${1:-}" ] && [ "$used_gb" -gt "$1" ]; then
+  printf 'FAIL  %-28s %s\n' "disk budget" "${used_gb} GB used, budget ${1} GB"
+  failures+=("disk budget")
+fi
+
+if [ "${#failures[@]}" -gt 0 ]; then
+  echo "runner-image-check: FAIL (${failures[*]})"
+  exit 1
+fi
+echo "runner-image-check: PASS"
