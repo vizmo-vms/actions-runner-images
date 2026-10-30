@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - azure/**
+      - "!azure/**/*.md"
       - .github/workflows/azure-image.yml
   workflow_dispatch:
   # 00:53 IST, outside working hours; new versions only reach runners after promote.sh's boot test.
@@ -38,6 +39,8 @@ jobs:
         run: echo "version=1.$(date -u +%Y%m%d).$(date -u +%H%M)" >> "$GITHUB_OUTPUT"
 
       - run: packer init azure
+        env:
+          PACKER_GITHUB_API_TOKEN: ${{ github.token }}
 
       # Each phase signs in again: the OIDC sign-in does not outlast the whole build.
       - uses: azure/login@v3
@@ -60,7 +63,10 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      # A failed runner-large still lets runner-base go out; the last step fails the run afterwards.
       - name: Build runner-large
+        id: large
+        continue-on-error: true
         run: >-
           packer build -color=false -timestamp-ui
           -var flavor=large
@@ -76,4 +82,20 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Boot-test and promote
-        run: azure/promote.sh ${{ steps.version.outputs.version }}
+        run: azure/promote.sh ${{ steps.version.outputs.version }} base ${{ steps.large.outcome == 'success' && 'large' || '' }}
+
+      - name: Fail because runner-large did not build
+        if: steps.large.outcome == 'failure'
+        run: exit 1
+
+      # A cancelled or failed build can leave Packer's Spot VM or a boot-test VM running.
+      - uses: azure/login@v3
+        if: failure() || cancelled()
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Delete leftover build VMs
+        if: failure() || cancelled()
+        run: azure/cleanup.sh

@@ -58,3 +58,7 @@ install -m 0755 "$here/../files/garm-preempt-watch" /usr/local/bin/garm-preempt-
 install -m 0644 "$here/../files/garm-preempt-watch.service" /etc/systemd/system/garm-preempt-watch.service
 systemctl daemon-reload
 systemctl enable garm-preempt-watch.service
+
+# A runner lives for one job: background apt runs would only hold the dpkg lock and compete with it.
+systemctl disable apt-daily.timer apt-daily-upgrade.timer
+apt-get purge -y -q unattended-upgrades

@@ -1,9 +1,10 @@
 name: Retry evicted jobs
 
 # Called by a workflow_run workflow in each repository that uses the Azure Spot runners. When a run's first attempt
-# failed because a Spot eviction cut a job short, re-runs its failed jobs once. The eviction watcher stops the runner,
-# so an evicted job fails with only "The operation was canceled."; a VM that vanished first leaves "lost communication
-# with the server". Timeouts add "exceeded the maximum execution time" to the same cancellation and are not retried.
+# failed because a Spot eviction cut a job short, re-runs its failed jobs once (other jobs that failed in that attempt
+# run again too). The eviction watcher stops the runner, so an evicted job fails with only "The operation was
+# canceled." or "The runner has received a shutdown signal"; a VM that vanished first leaves "lost communication with
+# the server". Timeouts add "exceeded the maximum execution time" to the same cancellation and are not retried.
 #
 # Caller:
 #   on:
@@ -34,13 +35,15 @@ jobs:
         run: |
           set -euo pipefail
           evicted=()
-          for job in $(gh api "repos/$REPO/actions/runs/$RUN_ID/attempts/1/jobs" --paginate \
-              --jq '.jobs[] | select(.conclusion == "failure" and ((.runner_name // "") | startswith("garm-"))) | .id'); do
-            messages=$(gh api "repos/$REPO/check-runs/$job/annotations" --jq '.[].message')
+          # Assigned first, so a failed API call fails the step instead of looking like a run with no evictions.
+          failed=$(gh api "repos/$REPO/actions/runs/$RUN_ID/attempts/1/jobs" --paginate \
+            --jq '.jobs[] | select(.conclusion == "failure" and ((.runner_name // "") | startswith("garm-"))) | .id')
+          for job in $failed; do
+            messages=$(gh api "repos/$REPO/check-runs/$job/annotations" --paginate --jq '.[].message')
             if grep -q "exceeded the maximum execution time" <<<"$messages"; then
               continue
             fi
-            if grep -qE "^The operation was canceled\.$|lost communication with the server" <<<"$messages"; then
+            if grep -qE "^The operation was canceled\.$|runner has received a shutdown signal|lost communication with the server" <<<"$messages"; then
               evicted+=("$job")
             fi
           done

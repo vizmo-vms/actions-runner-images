@@ -61,6 +61,7 @@ done
 for major in ${TOOLCACHE_JAVA_MAJORS}; do
   check "toolcache java $major" complete "Java_Temurin-Hotspot_jdk/${major}.*/x64"
 done
+check "toolcache writable" bash -c 'test -w /opt/hostedtoolcache && test -O /opt/hostedtoolcache/node && echo yes'
 check java java -version
 expect flutter "Flutter ${FLUTTER_VERSION}" flutter --version
 expect "android platform" "platforms;${ANDROID_PLATFORM}" sdkmanager --list_installed
@@ -68,6 +69,7 @@ check "gradle ${GRADLE_VERSION}" bash -c "ls -d ~/.gradle/wrapper/dists/gradle-$
 check "playwright chromium" bash -c 'ls -d ~/.cache/ms-playwright/chromium-* | wc -l | grep -qv "^0$" && ls ~/.cache/ms-playwright | tr "\n" " "'
 check "actions runner" bash -c 'test -x ~/actions-runner/bin/Runner.Listener && grep "^NVM_DIR=" ~/actions-runner/.env'
 check "eviction watcher" systemctl is-enabled garm-preempt-watch.service
+check "no apt timers" bash -c '! systemctl is-enabled --quiet apt-daily.timer apt-daily-upgrade.timer && echo disabled'
 
 if [ -s /etc/runner-image/images.txt ]; then
   missing=()

@@ -17,6 +17,8 @@ esac
 mkdir -p /etc/runner-image
 install -m 0644 "$here/versions.env" /etc/runner-image/versions.env
 install -m 0755 "$here/../files/runner-image-check" /usr/local/bin/runner-image-check
+# setup-* actions download versions that aren't cached into the tool cache, as the runner user.
+chown -R runner:runner /opt/hostedtoolcache
 
 docker builder prune --all --force >/dev/null
 apt-get clean

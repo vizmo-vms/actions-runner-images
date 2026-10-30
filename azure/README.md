@@ -2,7 +2,9 @@
 
 VM images for the GARM runners on Azure Spot (New Zealand North). GARM starts one VM per job from these images; the
 VM boots with every tool already installed, so cloud-init only registers the runner. No apt, downloads or pulls happen
-at boot.
+at boot, as long as the scale set's extra specs set `"disable_updates": true` (otherwise GARM's cloud-config upgrades
+every package first). The apt timers and unattended-upgrades are off, and the tool cache belongs to the runner user,
+so `setup-*` actions can still add versions it lacks.
 
 | Image | Runners | VM disk | Adds |
 | --- | --- | --- | --- |
@@ -32,13 +34,16 @@ installed and fails on anything missing.
 
 ## Build and release
 
-[`azure-image.yml`](../.github/workflows/azure-image.yml) runs nightly, on changes here, and on demand:
+[`azure-image.yml`](../.github/workflows/azure-image.yml) runs nightly, on changes here (other than docs), and on
+demand:
 
 1. Packer builds `runner-base` from Ubuntu 24.04, then `runner-large` from that `runner-base`, on a Spot VM. Each
    build fails when the image would leave jobs less than 10 GB (base) or 25 GB (large) of free disk.
 2. Both versions go into the `vizmo_runners` gallery in `rg-runner-images`, hidden from "latest".
 3. [`promote.sh`](promote.sh) boots each on a fresh VM the way GARM does and runs `runner-image-check`. Only when both
-   pass do they become the latest; the three newest versions of each are kept.
+   pass do they become the latest. If `runner-large` fails to build, `runner-base` still goes out and the run fails.
+4. Hidden versions are deleted, and the three newest promoted versions of each image are kept for rollback.
+5. A failed or cancelled run deletes any build or boot-test VM it left behind ([`cleanup.sh`](cleanup.sh)).
 
 The workflow signs in to Azure as the `id-runner-image-builder` managed identity (OIDC, Contributor on
 `rg-runner-images` only). Repository variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID` name
@@ -53,11 +58,14 @@ az sig image-version update -g rg-runner-images -r vizmo_runners -i runner-base 
   --set publishingProfile.excludeFromLatest=true
 ```
 
-To try a change without publishing it, build locally with your own `az login`:
+To try a change before merging it, build locally with your own `az login`. The version lands in the gallery hidden,
+so runners never use it, and the next promote deletes it. `runner-large` needs the `runner-base` version to build on:
 
 ```bash
 packer init azure
 packer build -var flavor=base -var image_version=0.$(date -u +%Y%m%d).1 -var subscription_id=<subscription> azure
+packer build -var flavor=large -var base_version=0.$(date -u +%Y%m%d).1 -var image_version=0.$(date -u +%Y%m%d).1 \
+  -var subscription_id=<subscription> azure
 ```
 
 ## Adding a tool
