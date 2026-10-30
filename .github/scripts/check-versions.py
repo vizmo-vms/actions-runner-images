@@ -69,10 +69,13 @@ for arg, version in pinned.items():
 
 lines = ["| Tool | Pinned | Latest | Status |", "|---|---|---|---|", *rows]
 if "NODE_VERSION" in pinned:
-    lts = node_latest_lts(pinned["NODE_VERSION"])
-    if lts.split(".")[0] != pinned["NODE_VERSION"].split(".")[0]:
-        lines.append(f"\nA newer Node.js LTS major is out: `{lts}`.")
-        outdated += 1
+    # Informational only: it would otherwise reopen the issue every week until the major is bumped.
+    try:
+        lts = node_latest_lts(pinned["NODE_VERSION"])
+        if lts.split(".")[0] != pinned["NODE_VERSION"].split(".")[0]:
+            lines.append(f"\nA newer Node.js LTS major is out: `{lts}`.")
+    except Exception as err:
+        lines.append(f"\nNode.js LTS lookup failed: {err}")
 print("\n".join(lines))
 
 if os.environ.get("GITHUB_OUTPUT"):
