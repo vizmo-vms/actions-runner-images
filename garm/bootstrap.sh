@@ -126,9 +126,21 @@ retry apt_get install -y --no-install-recommends \
   libgl1-mesa-dev libx11-dev libxcursor-dev libxi-dev libxrandr-dev libxkbcommon-dev libxkbcommon-x11-0 \
   libwayland-dev libfontconfig1-dev libfreetype6-dev xvfb xauth mesa-vulkan-drivers libvulkan1 \
   libffi-dev libssl-dev libyaml-dev zlib1g-dev libglu1-mesa file git-lfs gnupg lsb-release openssh-client \
-  rsync time tree zstd \
+  rsync time tree zstd bubblewrap \
   docker-ce docker-ce-cli containerd.io docker-buildx-plugin gh
 usermod -aG docker runner
+
+# Codex (PR AI Quality) runs its shell tools inside bubblewrap. Ubuntu 24.04 restricts unprivileged user namespaces
+# through AppArmor, so bwrap gets a profile that allows them; without it Codex reviews the diff with no shell.
+cat >/etc/apparmor.d/bwrap <<'EOF_BWRAP'
+abi <abi/4.0>,
+include <tunables/global>
+
+profile bwrap /usr/bin/bwrap flags=(unconfined) {
+  userns,
+}
+EOF_BWRAP
+apparmor_parser -r /etc/apparmor.d/bwrap
 
 phase "waiting for downloads"
 wait "$clis_pid" || { cat /var/log/runner-bootstrap-clis.log; fail "installing the CLIs"; }
@@ -215,6 +227,7 @@ runuser -l runner -c 'set -e
   node --version; pnpm --version
   docker info --format "docker {{.ServerVersion}}"; docker compose version --short
   temporal --version; kubectl version --client; devspace --version; rancher --version
-  gh --version | head -1; jq --version; yq --version'
+  gh --version | head -1; jq --version; yq --version
+  bwrap --ro-bind / / --unshare-user --unshare-net true && echo "bwrap ok"'
 
 phase "done"

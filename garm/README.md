@@ -7,6 +7,8 @@ image: [`bootstrap.sh`](bootstrap.sh) runs on every VM before GARM installs the 
   Temporal CLI, DevSpace, Rancher CLI, kubectl and Docker Compose, plus the build and node-canvas packages
 - Docker (Docker Hub pulls go through `mirror.gcr.io`), gh, yq, and the packages jobs used to `apt-get install`
   themselves
+- bubblewrap with an AppArmor profile that lets it create user namespaces, so Codex in PR AI Quality (argus,
+  platform) can run its sandboxed shell
 - `NVM_DIR`, `RUNNER_TOOL_CACHE` and `AGENT_TOOLSDIRECTORY=/opt/hostedtoolcache` in every job's environment, and Node 24
   on `PATH`
 - `garm-preempt-watch`, which stops the runner as soon as Azure announces a Spot eviction, so the job fails at once
